@@ -20,6 +20,8 @@ import Loading from '@/app/components/base/loading'
 import { replaceVarWithValues, userInputsFormToPromptVariables } from '@/utils/prompt'
 import AppUnavailable from '@/app/components/app-unavailable'
 import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate } from '@/config'
+import { UI_CONFIG } from '@/config/ui'
+import LandingHero from '@/app/components/welcome/landing-hero'
 import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
 
@@ -51,7 +53,11 @@ const Main: FC<IMainProps> = () => {
   const [fileConfig, setFileConfig] = useState<FileUpload | undefined>()
 
   useEffect(() => {
-    if (APP_INFO?.title) { document.title = `${APP_INFO.title} - Powered by Dify` }
+    if (APP_INFO?.title) {
+      document.title = UI_CONFIG.showPoweredBy
+        ? `${APP_INFO.title} - Powered by Dify`
+        : APP_INFO.title
+    }
   }, [APP_INFO?.title])
 
   // onData change thought (the produce obj). https://github.com/immerjs/immer/issues/576
@@ -173,7 +179,22 @@ const Main: FC<IMainProps> = () => {
   */
   const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
   const chatListDomRef = useRef<HTMLDivElement>(null)
+
+  const hasVar = (promptConfig?.prompt_variables.length ?? 0) > 0
+  const hasUserMessages = chatList.some(item => item.isAnswer === false)
+  const showLanding = hasSetInputs && !hasUserMessages && !hasVar
+  const displayChatList = showLanding
+    ? chatList.filter(item => !item.isOpeningStatement)
+    : chatList
+
+  // Auto-start chat for apps without pre-chat variables (e.g. 钛宝)
   useEffect(() => {
+    if (inited && promptConfig && !hasVar && !isChatStarted && isNewConversation) {
+      handleStartChat({})
+    }
+  }, [inited, promptConfig, hasVar, isChatStarted, isNewConversation])
+  useEffect(() => {
+    if (showLanding) { return }
     // scroll to bottom with page-level scrolling
     if (chatListDomRef.current) {
       setTimeout(() => {
@@ -183,7 +204,7 @@ const Main: FC<IMainProps> = () => {
         })
       }, 50)
     }
-  }, [chatList, currConversationId])
+  }, [chatList, currConversationId, showLanding])
   // user can not edit inputs if user had send message
   const canEditInputs = !chatList.some(item => item.isAnswer === false) && isNewConversation
   const createNewChat = () => {
@@ -212,7 +233,7 @@ const Main: FC<IMainProps> = () => {
       content: calculatedIntroduction,
       isAnswer: true,
       feedbackDisabled: true,
-      isOpeningStatement: isShowPrompt,
+      isOpeningStatement: true,
       suggestedQuestions,
     }
     if (calculatedIntroduction) { return [openStatement] }
@@ -307,7 +328,7 @@ const Main: FC<IMainProps> = () => {
     let emptyRequiredInput = false
     promptConfig.prompt_variables.forEach((item) => {
       if (item.required && !currInputs[item.key])
-        emptyRequiredInput = true
+      { emptyRequiredInput = true }
     })
 
     if (emptyRequiredInput) {
@@ -652,49 +673,76 @@ const Main: FC<IMainProps> = () => {
 
   if (!APP_ID || !APP_INFO || !promptConfig) { return <Loading type='app' /> }
 
+  const showDesktopSidebar = !UI_CONFIG.hideSidebarOnDesktop || isMobile
+
   return (
-    <div className='bg-gray-100'>
+    <div className='bg-white min-h-screen'>
       <Header
         title={APP_INFO.title}
         isMobile={isMobile}
         onShowSideBar={showSidebar}
         onCreateNewChat={() => handleConversationIdChange('-1')}
+        siteInfo={APP_INFO}
       />
-      <div className="flex rounded-t-2xl bg-white overflow-hidden">
+      <div className="flex bg-white overflow-hidden">
         {/* sidebar */}
-        {!isMobile && renderSidebar()}
-        {isMobile && isShowSidebar && (
-          <div className='fixed inset-0 z-50' style={{ backgroundColor: 'rgba(35, 56, 118, 0.2)' }} onClick={hideSidebar} >
-            <div className='inline-block' onClick={e => e.stopPropagation()}>
+        {showDesktopSidebar && !isMobile && renderSidebar()}
+        {isShowSidebar && (
+          <div
+            className='fixed inset-x-0 bottom-0 top-14 z-50'
+            style={{ backgroundColor: 'rgba(35, 56, 118, 0.2)' }}
+            onClick={hideSidebar}
+          >
+            <div className='inline-block h-full' onClick={e => e.stopPropagation()}>
               {renderSidebar()}
             </div>
           </div>
         )}
         {/* main */}
-        <div className='flex-grow flex flex-col h-[calc(100vh_-_3rem)] overflow-y-auto'>
-          <ConfigSence
-            conversationName={conversationName}
-            hasSetInputs={hasSetInputs}
-            isPublicVersion={isShowPrompt}
-            siteInfo={APP_INFO}
-            promptConfig={promptConfig}
-            onStartChat={handleStartChat}
-            canEditInputs={canEditInputs}
-            savedInputs={currInputs as Record<string, any>}
-            onInputsChange={setCurrInputs}
-          ></ConfigSence>
+        <div className='flex-grow flex flex-col h-[calc(100vh_-_3.5rem)] overflow-y-auto bg-white'>
+          {hasVar && !hasSetInputs && (
+            <ConfigSence
+              conversationName={conversationName}
+              hasSetInputs={hasSetInputs}
+              isPublicVersion={isShowPrompt}
+              siteInfo={APP_INFO}
+              promptConfig={promptConfig}
+              onStartChat={handleStartChat}
+              canEditInputs={canEditInputs}
+              savedInputs={currInputs as Record<string, any>}
+              onInputsChange={setCurrInputs}
+            />
+          )}
+
+          {showLanding && (
+            <LandingHero
+              openingStatement={conversationIntroduction}
+              description={APP_INFO.description}
+              suggestedQuestions={suggestedQuestions}
+              onCategorySelect={handleSend}
+              isResponding={isResponding}
+            />
+          )}
 
           {
             hasSetInputs && (
-              <div className='relative grow pc:w-[794px] max-w-full mobile:w-full pb-[180px] mx-auto mb-3.5' ref={chatListDomRef}>
+              <div
+                className={showLanding
+                  ? 'relative max-w-full w-full'
+                  : 'relative grow max-w-full w-full pb-[200px] mx-auto'}
+                ref={showLanding ? undefined : chatListDomRef}
+              >
                 <Chat
-                  chatList={chatList}
+                  chatList={displayChatList}
                   onSend={handleSend}
                   onFeedback={handleFeedback}
                   isResponding={isResponding}
                   checkCanSend={checkCanSend}
                   visionConfig={visionConfig}
                   fileConfig={fileConfig}
+                  suggestedQuestions={suggestedQuestions}
+                  showLanding={showLanding}
+                  onCategorySelect={handleSend}
                 />
               </div>)
           }

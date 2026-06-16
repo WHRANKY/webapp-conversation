@@ -6,7 +6,6 @@ import type { Emoji } from '@/types/tools'
 import { HandThumbDownIcon, HandThumbUpIcon } from '@heroicons/react/24/outline'
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import Button from '@/app/components/base/button'
 import StreamdownMarkdown from '@/app/components/base/streamdown-markdown'
 import Tooltip from '@/app/components/base/tooltip'
 import WorkflowProcess from '@/app/components/workflow/workflow-process'
@@ -15,6 +14,8 @@ import ImageGallery from '../../base/image-gallery'
 import LoadingAnim from '../loading-anim'
 import s from '../style.module.css'
 import Thought from '../thought'
+import TopicPill from '../topic-pill'
+import AppIcon from '@/app/components/base/app-icon'
 
 function OperationBtn({ innerContent, onClick, className }: { innerContent: React.ReactNode, onClick?: () => void, className?: string }) {
   return (
@@ -70,6 +71,8 @@ interface IAnswerProps {
   isResponding?: boolean
   allToolIcons?: Record<string, string | Emoji>
   suggestionClick?: (suggestion: string) => void
+  appIcon?: string
+  appIconBackground?: string
 }
 
 // The component needs to maintain its own state to control whether to display input component
@@ -80,6 +83,8 @@ const Answer: FC<IAnswerProps> = ({
   isResponding,
   allToolIcons,
   suggestionClick = () => { },
+  appIcon,
+  appIconBackground,
 }) => {
   const { id, content, feedback, agent_thoughts, workflowProcess, suggestedQuestions = [] } = item
   const isAgentMode = !!agent_thoughts && agent_thoughts.length > 0
@@ -180,6 +185,12 @@ const Answer: FC<IAnswerProps> = ({
     <div key={id}>
       <div className="flex items-start">
         <div className={`${s.answerIcon} w-10 h-10 shrink-0`}>
+          <AppIcon
+            size="large"
+            rounded
+            icon={appIcon}
+            background={appIconBackground}
+          />
           {isResponding
             && (
               <div className={s.typeingIcon}>
@@ -189,7 +200,7 @@ const Answer: FC<IAnswerProps> = ({
         </div>
         <div className={`${s.answerWrap} max-w-[calc(100%-3rem)]`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
-            <div className={`ml-2 py-3 px-4 bg-gray-100 rounded-tr-2xl rounded-b-2xl ${workflowProcess && 'min-w-[480px]'}`}>
+            <div className={`ml-2 py-3 px-4 bg-gray-50 rounded-2xl ${workflowProcess ? 'min-w-[280px]' : ''}`}>
               {workflowProcess && (
                 <WorkflowProcess data={workflowProcess} hideInfo />
               )}
@@ -206,11 +217,13 @@ const Answer: FC<IAnswerProps> = ({
                   ))}
               {suggestedQuestions.length > 0 && (
                 <div className="mt-3">
-                  <div className="flex gap-1 mt-1 flex-wrap">
+                  <div className="flex gap-2 mt-1 flex-wrap">
                     {suggestedQuestions.map((suggestion, index) => (
-                      <div key={index} className="flex items-center gap-1">
-                        <Button className="text-sm" type="link" onClick={() => suggestionClick(suggestion)}>{suggestion}</Button>
-                      </div>
+                      <TopicPill
+                        key={index}
+                        label={suggestion}
+                        onClick={suggestionClick}
+                      />
                     ))}
                   </div>
                 </div>

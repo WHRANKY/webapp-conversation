@@ -16,6 +16,8 @@ const translation = {
     configDisabled:
       'Previous session settings have been used for this session.',
     startChat: 'Start Chat',
+    functionSelect: 'Categories',
+    inputPlaceholder: 'Describe your needs, or pick a category below…',
     privacyPolicyLeft:
       'Please read the ',
     privacyPolicyMiddle:
